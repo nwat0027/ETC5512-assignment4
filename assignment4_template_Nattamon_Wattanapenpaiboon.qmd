@@ -1,0 +1,258 @@
+---
+title: "Is The Seven-Year Itch Real?"
+subtitle: "Assignment 4 ETC5512"
+author: "Nattamon Wattanapenpaiboon"
+format: html
+editor: visual
+---
+
+::: panel-tabset
+<!-- Task 1 Tab: Data and Documenting -->
+
+## Data and Documenting
+
+### What's in this section
+
+Here is where you should provide the more comprehensive details about your data and your processing steps.
+
+These are the data details that an "average" blog post reader is not concerned with (Task 1).
+
+### Remember
+
+Please mention any additional files that you want the markers to review, eg. read me, meta data etc.
+
+<!-- Task 2 Tab: Writing your blogpost -->
+
+## Blog post
+
+### What's in this section
+
+Here is where you should write your blogpost! (Task 2)
+
+### Blogpost Structure
+
+There is no strict structure for you to follow. However, here is a skeleton structure you may find helpful.
+
+1.  Title (is set at the top of this document) Is The Seven-Year Itch Real?
+
+2.  Motivation
+
+    Why Explore the Seven-Year Itch?
+
+    The *Seven‑Year Itch* is one of those ideas that refuses to die — a cultural belief that marriages tend to break down around the seven‑year mark. It shows up in films, advice columns, and casual conversations, yet rarely gets tested with real data. That gap between myth and measurable reality makes it worth examining.
+
+    Understanding *when* marriages tend to end isn’t just trivia. Divorce timing reflects social norms, economic pressures, and how relationships evolve over the life course. If certain durations consistently show higher divorce counts, those patterns can reveal something meaningful about the stresses couples face at different stages.
+
+    The United Nations Statistics Division “Divorces by duration of marriage” dataset provides a rare opportunity to look at this question across countries and over time. By analysing divorce counts by marriage length, we can move beyond anecdotes and see whether the seven‑year peak actually appears — or whether the myth collapses under global demographic ev
+
+3.  Data\
+
+4.  Analysis\
+
+5.  Conclusions\
+
+6.  References
+
+<!-- Task 3 Tab: Behind the Scenes -  -->
+
+## Behind the Scenes
+
+### What's in this section
+
+Here is where you should tell us about your reflection on your analysis (Task 3).
+
+Again, these are the details about **your** perspective and the gritty details behind the scenes of your analysis.
+:::
+
+Drafted code
+
+```{r}
+library(tidyverse)
+library(janitor)
+library(countrycode)
+library(stringr)
+library(sf)
+library(rnaturalearthdata)
+
+divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
+# ------------------------
+# Cleaning the data
+# ------------------------
+divorce_data <- divorce_data |>
+  clean_names() |>
+  mutate(
+    duration_of_marriage = str_trim(duration_of_marriage),
+    year = str_trim(year)
+  ) |>
+  # keep only valid years to remove the footnotes
+  filter(str_detect(year, "^[0-9]{4}$"))
+
+# Step 1: keep ALL total rows, but rank them by quality
+totals <- divorce_data |>
+  filter(duration_of_marriage == "Total") |>
+  mutate(
+    quality_rank = case_when(
+      reliability == "Final figure, complete" ~ 1,
+      record_type == "Data tabulated by year of occurrence" ~ 2,
+      record_type == "Data tabulated by year of registration" ~ 3,
+      TRUE ~ 4
+    )
+  ) |>
+  arrange(country_or_area, year, quality_rank) |>
+  group_by(country_or_area, year) |>
+  slice(1) |>   # <-- ALWAYS keep only the best single row
+  ungroup() |>
+  select(country_or_area, year, total_value = value)
+
+
+# Step 2: keep duration categories only
+details <- divorce_data |>
+  filter(!duration_of_marriage %in% c("Total", "Not stated"))
+
+
+
+# Step 3: join totals back in
+clean_divorce <- details |>
+  left_join(totals, by = c("country_or_area", "year")) |>
+  mutate(
+    percent_of_total = value / total_value,
+    continent = countrycode(country_or_area, "country.name", "continent")
+  ) |>
+  # Keep only recent 30 years
+  filter(as.numeric(year) >= 1995)
+
+# Observe the variety in duration of marriage buckets
+duration_bucket <- clean_divorce |> 
+  distinct(duration_of_marriage) |> 
+  arrange(duration_of_marriage)
+
+
+clean_divorce <- clean_divorce |>
+  mutate(
+    # Extract all numbers from the bucket (handles "1", "1-3", "10 +", "Less than 5")
+    nums = str_extract_all(duration_of_marriage, "\\d+"),
+    nums = lapply(nums, as.numeric),
+    
+    # Determine the maximum number in the bucket
+    max_years = sapply(nums, function(x) if(length(x) == 0) NA else max(x)),
+    
+    # Standardise into global bins
+    duration_std = case_when(
+      str_detect(duration_of_marriage, "Less") ~ "0-1",
+      max_years <= 1 ~ "0-1",
+      max_years <= 2 ~ "1-2",
+      max_years <= 4 ~ "3-4",
+      max_years <= 9 ~ "5-9",
+      max_years >= 10 ~ "10+",
+      TRUE ~ NA_character_
+    )
+  ) |>
+  select(-nums, -max_years)
+
+# Observe the country names before matching with the world shapefile
+clean_divorce |> 
+  distinct(country_or_area) |> 
+  arrange(country_or_area)
+
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world_names <- world |>
+  st_drop_geometry() |>
+  select(name)
+
+mismatch <- clean_divorce |>
+  distinct(country_or_area) |>
+  anti_join(world_names, by = c("country_or_area" = "name"))
+
+
+# Build the lookup table in R
+name_fix <- tribble(
+  ~country_or_area, ~name,
+  "Brunei Darussalam", "Brunei",
+  "China, Macao SAR", "Macau",
+  "Iran (Islamic Republic of)", "Iran",
+  "Netherlands (Kingdom of the)", "Netherlands",
+  "Republic of Korea", "South Korea",
+  "Republic of Moldova", "Moldova",
+  "Russian Federation", "Russia",
+  "State of Palestine", "Palestine",
+  "Türkiye", "Turkey",
+  "United Kingdom of Great Britain and Northern Ireland", "United Kingdom",
+  "Venezuela (Bolivarian Republic of)", "Venezuela"
+)
+
+# Apply to fixes
+analysis_ready <- clean_divorce |>
+  left_join(name_fix, by = "country_or_area") |>
+  mutate(
+    country = if_else(is.na(name), country_or_area, name)
+  ) |>
+  select(-name, -country_or_area) |>
+  relocate(country)
+
+# ------------------------
+# Possible plots
+# ------------------------
+
+# Identify the peak divorce duration per year
+peak_duration <- analysis_ready |>
+  group_by(country, year) |>
+  slice_max(percent_of_total, n = 1) |>
+  ungroup()
+
+
+# Plot the peak duration over time, Compare continents
+ggplot(peak_duration,
+       aes(x = as.numeric(year), y = duration_std)) +
+  geom_point(alpha = 0.6) +
+  facet_wrap(~continent) +
+  theme_minimal() +
+  labs(
+    title = "Peak divorce duration over time by continent",
+    x = "Year",
+    y = "Duration group with highest divorce share"
+  )
+
+
+# Heatmap
+ggplot(analysis_ready,
+       aes(x = duration_std, y = as.numeric(year), fill = percent_of_total)) +
+  geom_tile() +
+  facet_wrap(~continent) +
+  scale_fill_viridis_c() +
+  theme_minimal() +
+  labs(
+    title = "Heatmap of divorce distribution by duration",
+    x = "Duration of marriage",
+    y = "Year"
+  )
+
+# Continent-level summary table - In each continent, which duration of marriage most often had the highest share of divorces?
+
+continent_peak_summary <- peak_duration |>
+  count(continent, duration_std, sort = TRUE) |>
+  group_by(continent) |>
+  mutate(
+    total = sum(n),
+    percent = n / total
+  ) |>
+  ungroup()
+continent_peak_summary |> arrange(desc(percent))
+
+
+# The the most recent peak for each country to see whether countries in the same continent has the same trend
+recent_peak <- peak_duration |>
+  group_by(country) |>
+  slice_max(as.numeric(year), n = 1) |>
+  ungroup()
+
+map_data <- world |>
+  left_join(recent_peak, by = c("name" = "country"))
+ggplot(map_data) +
+  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
+  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
+  theme_minimal() +
+  labs(
+    title = "Most Recent Peak Divorce Duration by Country",
+    fill = "Peak Duration"
+  )
+```
