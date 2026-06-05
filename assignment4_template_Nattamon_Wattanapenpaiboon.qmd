@@ -11,12 +11,6 @@ editor: visual
 
 ## Data and Documenting
 
-### What's in this section
-
-Here is where you should provide the more comprehensive details about your data and your processing steps.
-
-These are the data details that an "average" blog post reader is not concerned with (Task 1).
-
 ### Remember
 
 Please mention any additional files that you want the markers to review, eg. read me, meta data etc.
@@ -73,6 +67,7 @@ library(countrycode)
 library(stringr)
 library(sf)
 library(rnaturalearthdata)
+library(rnaturalearth)
 
 divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
 # ------------------------
@@ -255,4 +250,30 @@ ggplot(map_data) +
     title = "Most Recent Peak Divorce Duration by Country",
     fill = "Peak Duration"
   )
+
+europe <- world |> filter(continent == "Europe")
+europe_map <- europe |> left_join(recent_peak, by = c("name" = "country"))
+ggplot(europe_map) +
+  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
+  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
+  theme_minimal() +
+  labs(
+    title = "Most Recent Peak Divorce Duration in Europe",
+    fill = "Peak Duration"
+  )
+
+europe_outline <- world |>
+  filter(continent == "Europe") |>
+  st_combine() |>
+  st_as_sf()
+ggplot(map_data) +
+  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
+  geom_sf(data = europe_outline, fill = NA, color = "black", size = 0.8) +  # <-- outline
+  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
+  theme_minimal() +
+  labs(
+    title = "Most Recent Peak Divorce Duration by Country",
+    fill = "Peak Duration"
+  )
+
 ```
