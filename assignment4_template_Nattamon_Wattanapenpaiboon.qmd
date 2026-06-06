@@ -73,6 +73,7 @@ library(stringr)
 library(sf)
 library(rnaturalearthdata)
 library(rnaturalearth)
+library(knitr)
 
 divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
 
@@ -278,7 +279,7 @@ ggplot(map_coverage) +
 
 
 ### What does divorce timing look like across Europe?
-The bar graph below shows how common divorce is at different stages of marriage across Europe. The early‑marriage categories are shaded in grey to fade into the background, while the 5–9‑year and 10+‑year durations are highlighted in blue. This colour choice emphasises the mid‑marriage period where the Seven‑Year Itch is said to occur, helping us see whether the data actually supports the myth.
+The bar graph below shows how common divorce is at different stages of marriage across Europe. The colours follow a light‑to‑dark gradient, with lighter shades representing earlier durations and darker shades representing longer ones. 
 ```{r}
 avg_duration <- europe_divorce |> 
   mutate(duration_std = factor(duration_std,
@@ -290,11 +291,11 @@ ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
   geom_col() +
   scale_fill_manual(
     values = c(
-      "0-1" = "#d9d9d9",   # light grey
-      "1-2" = "#bdbdbd",   # medium grey
-      "3-4" = "#969696",   # darker grey
-      "5-9" = "#3182bd",   # strong blue (highlight)
-      "10+" = "#08519c"    # darker blue (highlight)
+      "0-1" = "#deebf7",   # light grey
+      "1-2" = "#c6dbef",   # medium grey
+      "3-4" = "#9ecae1",   # darker grey
+      "5-9" = "#6baed6",   # strong blue
+      "10+" = "#3182bd"    # darker blue
     )
   ) +
   labs(
@@ -312,7 +313,7 @@ Across Europe, divorces are relatively uncommon in the first few years of marria
 ### Where in Europe do divorces peak?
 While the Europe‑wide averages show that divorces tend to cluster in the mid‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
 
-The map below shows the typical divorce duration for each European country, based on **the most common (peak) duration category** observed between 1995 and 2025. Each country is coloured according to the marriage‑length bin that accounts for the largest share of its divorces. Early‑marriage categories (0–4 years) are shaded in grey, while the mid‑marriage and long‑marriage durations (5–9 years and 10+ years) are highlighted in blue to emphasise the period where the “Seven‑Year Itch” is expected to appear.
+The map below shows the typical divorce duration for each European country, based on **the most common (peak) duration category** observed between 1995 and 2025. Each country is coloured according to the marriage‑length bin that accounts for the largest share of its divorces.
 
 ```{r}
 #| echo: false
@@ -337,30 +338,39 @@ europe_map_proj <- st_transform(europe_map, 3035)
   geom_sf(aes(fill = duration_std), color = "white", size = 0.2) +
   scale_fill_manual(
     values = c(
-      "0-1" = "#d9d9d9",
-      "1-2" = "#bdbdbd",
-      "3-4" = "#969696",
-      "5-9" = "#3182bd",
-      "10+" = "#08519c"
+      "0-1" = "#deebf7",   # light grey
+      "1-2" = "#c6dbef",   # medium grey
+      "3-4" = "#9ecae1",   # darker grey
+      "5-9" = "#6baed6",   # strong blue
+      "10+" = "#3182bd"    # darker blue
     ),
     na.value = "grey90"
   ) +
   theme_minimal() +
+    theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank()
+  ) +
   labs(
     title = "Typical Divorce Timing Across Europe",
     subtitle = "Countries coloured by their most common divorce duration (1995–2025)",
     fill = "Peak Duration"
   )
   
+# Create a table that summarise the count
   country_peak_summary <- country_peak |>
+    mutate(duration_std = factor(duration_std,
+                               levels = c("0-1", "1-2", "3-4", "5-9", "10+"))) |>
   count(duration_std, name = "num_countries") |>
   arrange(duration_std)
 
-country_peak_summary
+kable(country_peak_summary)
 ```
-Across Europe, only a small number of countries reach their divorce peak within the first four years of marriage. For most countries, however, the most common divorce durations fall in the 5–9‑year and 10+-year categories, which dominate the map. Early‑marriage divorces do occur—and in a few countries they are the most frequent—but they remain the exception rather than the rule. The broader pattern shows that many European marriages tend to last several years before breaking down, suggesting that marital strain typically accumulates over time rather than emerging immediately.
+The map highlights clear variation in divorce timing across Europe. A number of countries reach their peak within the first four years of marriage, but these early peaks are geographically dispersed rather than concentrated in any particular region. Other countries peak slightly later, in the 5–9‑year range, while the largest group sees divorce most commonly after ten or more years of marriage. This mix of early, mid‑, and long‑marriage peaks shows that divorce timing differs meaningfully across the continent. When viewed alongside the summary table, which counts how many countries fall into each category, the overall pattern becomes clearer: early peaks exist, but mid‑ and especially long‑marriage peaks are more widespread. Together, the map and the table show that while divorce timing varies across Europe, most countries tend to experience divorce well beyond the earliest years of marriage.
 
-This geographic pattern reinforces the earlier bar chart: Europe as a whole shows a broad mid‑marriage rise in divorces, and the map demonstrates that this tendency is shared across most countries. While there is some variation in how early or late the peak occurs, the overall picture is consistent—mid‑ and long‑marriage divorces are far more common than early ones.
+This geographic pattern reinforces the earlier bar chart: Europe as a whole shows a broad mid‑marriage rise in divorces, and the map demonstrates that this tendency is shared across most countries. Although there is meaningful variation in how early or late the peak occurs, the overall picture is consistent—mid‑ and especially long‑marriage divorces are far more common than early ones.
 
 ### Has divorce timing shifted over the last 30 Years?
 
@@ -386,11 +396,11 @@ ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
   geom_area(alpha = 0.9) +
   scale_fill_manual(
     values = c(
-      "0-1" = "#d9d9d9",
-      "1-2" = "#bdbdbd",
-      "3-4" = "#969696",
-      "5-9" = "#3182bd",
-      "10+" = "#08519c"
+      "0-1" = "#deebf7",   # light grey
+      "1-2" = "#c6dbef",   # medium grey
+      "3-4" = "#9ecae1",   # darker grey
+      "5-9" = "#6baed6",   # strong blue
+      "10+" = "#3182bd"    # darker blue
     )
   ) +
   labs(
@@ -404,14 +414,14 @@ ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
 
 
 ```
-A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, showing no sign of becoming more common. In contrast, divorces after ten or more years of marriage have gradually increased, becoming the dominant category across Europe. The 5–9‑year group remains stable as the second‑largest category, reinforcing the idea of a broad mid‑marriage peak rather than a sharp spike at seven years. Taken together, these trends suggest that European marriages are lasting longer before breaking down, and that the “Seven‑Year Itch” is not intensifying over time. Instead, long‑marriage divorces have become increasingly prominent, pointing to deeper structural and social changes rather than a fixed psychological milestone.
+A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, showing no sign of becoming more common. In contrast, divorces after ten or more years of marriage have generally increased over time, becoming the dominant category across Europe. There is a brief dip in the 10+ group around the late 2000s and early 2010s, but this appears to be a temporary fluctuation rather than a structural shift, as the long‑marriage category resumes its upward trajectory in the following years. The 5–9‑year group remains stable as the second‑largest category, reinforcing the idea of a broad mid‑marriage peak rather than a sharp spike at seven years. Taken together, these trends suggest that European marriages are lasting longer before breaking down, and that the “Seven‑Year Itch” is not intensifying over time. Instead, long‑marriage divorces have become increasingly prominent, pointing to deeper social and demographic changes rather than a fixed psychological milestone.
 
 ### So does the Seven-Year Itch exist?
 
 Taken together, the evidence shows that the “Seven‑Year Itch” is more cultural shorthand than statistical reality. Across Europe, divorces rarely peak early in marriage, and the most common break‑up point consistently falls well beyond the seven‑year mark. Geographic patterns reveal broad agreement across countries, and the long‑term trends show that divorces are, if anything, happening later rather than earlier. While mid‑marriage remains a period of heightened vulnerability, there is no sharp spike at seven years—only a gradual rise and a long plateau. In this sense, the Seven‑Year Itch captures a real idea—that relationships evolve and sometimes strain over time—but it does not correspond to a precise moment in the data.
 
 
-6.  References
+### References
 
 <!-- Task 3 Tab: Behind the Scenes -  -->
 
