@@ -244,13 +244,13 @@ Given the substantial variation in completeness across regions, the final datase
 
 ## Blog post
 
-### Why Explore the Seven-Year Itch?
+### Why explore the Seven-Year Itch?
 
 The *Seven‑Year Itch* is one of those ideas that refuses to die — a cultural belief that marriages tend to break down around the seven‑year mark. It shows up in films, advice columns, and casual conversations, yet rarely gets tested with real data. That gap between myth and measurable reality makes it worth examining.
 
 Understanding *when* marriages tend to end isn’t just trivia. Divorce timing reflects social norms, economic pressures, and how relationships evolve over the life course. If certain durations consistently show higher divorce counts, those patterns can reveal something meaningful about the stresses couples face at different stages.
 
-### Dataset for analysing the Seven-Year-Itch in Europe
+### Dataset for analysing the duration of marriage before divorce in Europe
 The United Nations Statistics Division’s “Divorces by duration of marriage” dataset provides a rare opportunity to examine how long marriages last before ending across countries and over time. However, reporting completeness varies widely around the world. Many regions have sparse or inconsistent data, while Europe stands out as the area with the most comprehensive and continuous reporting of divorce‑duration statistics. To keep the analysis focused on contemporary patterns, this blog uses data from the most recent thirty years (1995–2025).
 For this reason, the analysis in **this blog focuses on European countries**, where the data are sufficiently complete to meaningfully explore whether a seven‑year peak in divorce timing actually appears — or whether the cultural myth collapses under empirical evidence.
 
@@ -277,7 +277,6 @@ ggplot(map_coverage) +
 ```
 
 
-4.  Analysis\
 ### What does divorce timing look like across Europe?
 The bar graph below shows how common divorce is at different stages of marriage across Europe. The early‑marriage categories are shaded in grey to fade into the background, while the 5–9‑year and 10+‑year durations are highlighted in blue. This colour choice emphasises the mid‑marriage period where the Seven‑Year Itch is said to occur, helping us see whether the data actually supports the myth.
 ```{r}
@@ -313,7 +312,7 @@ Across Europe, divorces are relatively uncommon in the first few years of marria
 ### Where in Europe do divorces peak?
 While the Europe‑wide averages show that divorces tend to cluster in the mid‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
 
-The map below shows the typical divorce duration for each European country, based on the most common (peak) duration category observed between 1995 and 2025. Each country is coloured according to the marriage‑length bin that accounts for the largest share of its divorces. Early‑marriage categories (0–4 years) are shaded in grey, while the mid‑marriage and long‑marriage durations (5–9 years and 10+ years) are highlighted in blue to emphasise the period where the “Seven‑Year Itch” is expected to appear.
+The map below shows the typical divorce duration for each European country, based on **the most common (peak) duration category** observed between 1995 and 2025. Each country is coloured according to the marriage‑length bin that accounts for the largest share of its divorces. Early‑marriage categories (0–4 years) are shaded in grey, while the mid‑marriage and long‑marriage durations (5–9 years and 10+ years) are highlighted in blue to emphasise the period where the “Seven‑Year Itch” is expected to appear.
 
 ```{r}
 #| echo: false
@@ -324,7 +323,17 @@ country_peak <- europe_divorce |>
   slice_max(avg_pct, n = 1) |>
   ungroup()
 
-  ggplot(europe_map) +
+# Join country_peak to the map
+europe_map <- world |>
+  filter(continent == "Europe") |>
+  left_join(country_peak, by = c("name" = "country")) |>
+  mutate(duration_std = factor(duration_std,
+                               levels = c("0-1", "1-2", "3-4", "5-9", "10+")))
+
+# Reproject to a Europe-friendly projection
+europe_map_proj <- st_transform(europe_map, 3035)
+
+  ggplot(europe_map_proj) +
   geom_sf(aes(fill = duration_std), color = "white", size = 0.2) +
   scale_fill_manual(
     values = c(
@@ -336,32 +345,71 @@ country_peak <- europe_divorce |>
     ),
     na.value = "grey90"
   ) +
-  coord_sf(
-    xlim = c(-25, 45),   # longitude
-    ylim = c(34, 72),    # latitude
-    expand = FALSE
-  ) +
   theme_minimal() +
   labs(
     title = "Typical Divorce Timing Across Europe",
     subtitle = "Countries coloured by their most common divorce duration (1995–2025)",
     fill = "Peak Duration"
   )
+  
+  country_peak_summary <- country_peak |>
+  count(duration_std, name = "num_countries") |>
+  arrange(duration_std)
+
+country_peak_summary
 ```
-Across Europe, no country has its divorce peak in the first four years of marriage. Instead, the dominant categories are consistently 5–9 years and 10+ years, shown in blue. This means that although early divorces do occur, they are never the most common outcome. Most European countries experience their highest concentration of divorces well into mid‑marriage or later, reinforcing the idea that marital strain tends to build over time rather than appearing immediately.
+Across Europe, only a small number of countries reach their divorce peak within the first four years of marriage. For most countries, however, the most common divorce durations fall in the 5–9‑year and 10+-year categories, which dominate the map. Early‑marriage divorces do occur—and in a few countries they are the most frequent—but they remain the exception rather than the rule. The broader pattern shows that many European marriages tend to last several years before breaking down, suggesting that marital strain typically accumulates over time rather than emerging immediately.
 
-This geographic pattern complements the earlier bar chart: Europe as a whole shows a mid‑marriage rise in divorces, and the map reveals that this pattern is broadly shared across individual countries, with some variation in how early or late the peak occurs.
+This geographic pattern reinforces the earlier bar chart: Europe as a whole shows a broad mid‑marriage rise in divorces, and the map demonstrates that this tendency is shared across most countries. While there is some variation in how early or late the peak occurs, the overall picture is consistent—mid‑ and long‑marriage divorces are far more common than early ones.
 
+### Has divorce timing shifted over the last 30 Years?
 
-Does the seven-year itch appear over time?
-Plot how the peak duration bin changes over time.
+Now that we’ve seen the overall European pattern and the geographic differences between countries, the next question is whether divorce timing has changed over the last three decades. Social norms, economic conditions, and family structures have all evolved since the mid‑1990s, and these shifts may influence when marriages are most likely to end. To explore this, we track how the share of divorces in each duration category has changed from 1995 to 2025.
 ```{r}
+# Prepare data for time trend
+trend_data <- europe_divorce |>
+  mutate(
+    year = as.numeric(year),
+    duration_std = factor(
+      duration_std,
+      levels = c("0-1", "1-2", "3-4", "5-9", "10+")
+    )
+  ) |>
+  group_by(year, duration_std) |>
+  summarise(
+    mean_pct = mean(percent_of_total, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot: stacked area chart
+ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
+  geom_area(alpha = 0.9) +
+  scale_fill_manual(
+    values = c(
+      "0-1" = "#d9d9d9",
+      "1-2" = "#bdbdbd",
+      "3-4" = "#969696",
+      "5-9" = "#3182bd",
+      "10+" = "#08519c"
+    )
+  ) +
+  labs(
+    title = "How Divorce Timing Has Shifted Over Time",
+    subtitle = "Average share of divorces in each duration category, 1995–2025",
+    x = "Year",
+    y = "Average % of Divorces",
+    fill = "Duration"
+  ) +
+  theme_minimal()
 
 
 ```
+A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, showing no sign of becoming more common. In contrast, divorces after ten or more years of marriage have gradually increased, becoming the dominant category across Europe. The 5–9‑year group remains stable as the second‑largest category, reinforcing the idea of a broad mid‑marriage peak rather than a sharp spike at seven years. Taken together, these trends suggest that European marriages are lasting longer before breaking down, and that the “Seven‑Year Itch” is not intensifying over time. Instead, long‑marriage divorces have become increasingly prominent, pointing to deeper structural and social changes rather than a fixed psychological milestone.
 
+### So does the Seven-Year Itch exist?
 
-5.  Conclusions\
+Taken together, the evidence shows that the “Seven‑Year Itch” is more cultural shorthand than statistical reality. Across Europe, divorces rarely peak early in marriage, and the most common break‑up point consistently falls well beyond the seven‑year mark. Geographic patterns reveal broad agreement across countries, and the long‑term trends show that divorces are, if anything, happening later rather than earlier. While mid‑marriage remains a period of heightened vulnerability, there is no sharp spike at seven years—only a gradual rise and a long plateau. In this sense, the Seven‑Year Itch captures a real idea—that relationships evolve and sometimes strain over time—but it does not correspond to a precise moment in the data.
+
 
 6.  References
 
@@ -376,221 +424,4 @@ Here is where you should tell us about your reflection on your analysis (Task 3)
 Again, these are the details about **your** perspective and the gritty details behind the scenes of your analysis.
 :::
 
-Drafted code
 
-```{r}
-library(tidyverse)
-library(janitor)
-library(countrycode)
-library(stringr)
-library(sf)
-library(rnaturalearthdata)
-library(rnaturalearth)
-
-divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
-# ------------------------
-# Cleaning the data
-# ------------------------
-divorce_data <- divorce_data |>
-  clean_names() |>
-  mutate(
-    duration_of_marriage = str_trim(duration_of_marriage),
-    year = str_trim(year)
-  ) |>
-  # keep only valid years to remove the footnotes
-  filter(str_detect(year, "^[0-9]{4}$"))
-
-# Step 1: keep ALL total rows, but rank them by quality
-totals <- divorce_data |>
-  filter(duration_of_marriage == "Total") |>
-  mutate(
-    quality_rank = case_when(
-      reliability == "Final figure, complete" ~ 1,
-      record_type == "Data tabulated by year of occurrence" ~ 2,
-      record_type == "Data tabulated by year of registration" ~ 3,
-      TRUE ~ 4
-    )
-  ) |>
-  arrange(country_or_area, year, quality_rank) |>
-  group_by(country_or_area, year) |>
-  slice(1) |>   # <-- ALWAYS keep only the best single row
-  ungroup() |>
-  select(country_or_area, year, total_value = value)
-
-
-# Step 2: keep duration categories only
-details <- divorce_data |>
-  filter(!duration_of_marriage %in% c("Total", "Not stated"))
-
-
-# Step 3: join totals back in
-clean_divorce <- details |>
-  left_join(totals, by = c("country_or_area", "year")) |>
-  mutate(
-    percent_of_total = value / total_value,
-    continent = countrycode(country_or_area, "country.name", "continent")
-  ) |>
-  # Keep only recent 30 years
-  filter(as.numeric(year) >= 1995)
-
-# Observe the variety in duration of marriage buckets
-duration_bucket <- clean_divorce |> 
-  distinct(duration_of_marriage) |> 
-  arrange(duration_of_marriage)
-
-
-clean_divorce <- clean_divorce |>
-  mutate(
-    # Extract all numbers from the bucket (handles "1", "1-3", "10 +", "Less than 5")
-    nums = str_extract_all(duration_of_marriage, "\\d+"),
-    nums = lapply(nums, as.numeric),
-    
-    # Determine the maximum number in the bucket
-    max_years = sapply(nums, function(x) if(length(x) == 0) NA else max(x)),
-    
-    # Standardise into global bins
-    duration_std = case_when(
-      str_detect(duration_of_marriage, "Less") ~ "0-1",
-      max_years <= 1 ~ "0-1",
-      max_years <= 2 ~ "1-2",
-      max_years <= 4 ~ "3-4",
-      max_years <= 9 ~ "5-9",
-      max_years >= 10 ~ "10+",
-      TRUE ~ NA_character_
-    )
-  ) |>
-  select(-nums, -max_years)
-
-# Observe the country names before matching with the world shapefile
-clean_divorce |> 
-  distinct(country_or_area) |> 
-  arrange(country_or_area)
-
-world <- ne_countries(scale = "medium", returnclass = "sf")
-world_names <- world |>
-  st_drop_geometry() |>
-  select(name)
-
-mismatch <- clean_divorce |>
-  distinct(country_or_area) |>
-  anti_join(world_names, by = c("country_or_area" = "name"))
-
-
-# Build the lookup table in R
-name_fix <- tribble(
-  ~country_or_area, ~name,
-  "Brunei Darussalam", "Brunei",
-  "China, Macao SAR", "Macau",
-  "Iran (Islamic Republic of)", "Iran",
-  "Netherlands (Kingdom of the)", "Netherlands",
-  "Republic of Korea", "South Korea",
-  "Republic of Moldova", "Moldova",
-  "Russian Federation", "Russia",
-  "State of Palestine", "Palestine",
-  "Türkiye", "Turkey",
-  "United Kingdom of Great Britain and Northern Ireland", "United Kingdom",
-  "Venezuela (Bolivarian Republic of)", "Venezuela"
-)
-
-# Apply to fixes
-analysis_ready <- clean_divorce |>
-  left_join(name_fix, by = "country_or_area") |>
-  mutate(
-    country = if_else(is.na(name), country_or_area, name)
-  ) |>
-  select(-name, -country_or_area) |>
-  relocate(country)
-
-# ------------------------
-# Possible plots
-# ------------------------
-
-# Identify the peak divorce duration per year
-peak_duration <- analysis_ready |>
-  group_by(country, year) |>
-  slice_max(percent_of_total, n = 1) |>
-  ungroup()
-
-
-# Plot the peak duration over time, Compare continents
-ggplot(peak_duration,
-       aes(x = as.numeric(year), y = duration_std)) +
-  geom_point(alpha = 0.6) +
-  facet_wrap(~continent) +
-  theme_minimal() +
-  labs(
-    title = "Peak divorce duration over time by continent",
-    x = "Year",
-    y = "Duration group with highest divorce share"
-  )
-
-
-# Heatmap
-ggplot(analysis_ready,
-       aes(x = duration_std, y = as.numeric(year), fill = percent_of_total)) +
-  geom_tile() +
-  facet_wrap(~continent) +
-  scale_fill_viridis_c() +
-  theme_minimal() +
-  labs(
-    title = "Heatmap of divorce distribution by duration",
-    x = "Duration of marriage",
-    y = "Year"
-  )
-
-# Continent-level summary table - In each continent, which duration of marriage most often had the highest share of divorces?
-
-continent_peak_summary <- peak_duration |>
-  count(continent, duration_std, sort = TRUE) |>
-  group_by(continent) |>
-  mutate(
-    total = sum(n),
-    percent = n / total
-  ) |>
-  ungroup()
-continent_peak_summary |> arrange(desc(percent))
-
-
-# The the most recent peak for each country to see whether countries in the same continent has the same trend
-recent_peak <- peak_duration |>
-  group_by(country) |>
-  slice_max(as.numeric(year), n = 1) |>
-  ungroup()
-
-map_data <- world |>
-  left_join(recent_peak, by = c("name" = "country"))
-ggplot(map_data) +
-  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
-  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
-  theme_minimal() +
-  labs(
-    title = "Most Recent Peak Divorce Duration by Country",
-    fill = "Peak Duration"
-  )
-
-europe <- world |> filter(continent == "Europe")
-europe_map <- europe |> left_join(recent_peak, by = c("name" = "country"))
-ggplot(europe_map) +
-  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
-  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
-  theme_minimal() +
-  labs(
-    title = "Most Recent Peak Divorce Duration in Europe",
-    fill = "Peak Duration"
-  )
-
-europe_outline <- world |>
-  filter(continent == "Europe") |>
-  st_combine() |>
-  st_as_sf()
-ggplot(map_data) +
-  geom_sf(aes(fill = duration_std), color = "white", size = 0.1) +
-  geom_sf(data = europe_outline, fill = NA, color = "black", size = 0.8) +  # <-- outline
-  scale_fill_brewer(palette = "Set2", na.value = "grey90") +
-  theme_minimal() +
-  labs(
-    title = "Most Recent Peak Divorce Duration by Country",
-    fill = "Peak Duration"
-  )
-
-```
