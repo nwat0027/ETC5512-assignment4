@@ -8,12 +8,147 @@ editor: visual
 
 ::: panel-tabset
 <!-- Task 1 Tab: Data and Documenting -->
-
 ## Data and Documenting
 
-### Remember
+### Topic of this work?
 
-Please mention any additional files that you want the markers to review, eg. read me, meta data etc.
+This blog post investigates whether the cultural idea of the *Seven‑Year Itch*—the belief that marriages tend to break down around the seven‑year mark—has any empirical support in global divorce data.
+
+To explore this, I also consider several sub‑questions:
+
+- How do divorce counts vary across different marriage‑duration categories
+
+- Do countries show similar or different patterns in when marriages tend to end?
+
+- Has the timing of divorce peaks shifted over the past 30 years?
+
+
+The Seven‑Year Itch is widely referenced in popular culture but rarely tested with global, longitudinal data. The dataset provides a unique opportunity to examine a familiar idea through a demographic lens.
+
+### Data description
+This analysis uses the “Divorces by duration of marriage” dataset from the Demographic Statistics Database maintained by the United Nations Statistics Division (UNSD). The data form part of the United Nations Demographic Yearbook system, which collects official demographic and social statistics from national statistical offices through annual questionnaires. Further information is described below. Only the key data‑cleaning decisions that affect interpretation are summarised in this blog post. Full details of the wrangling process, including variable transformations, are documented in the accompanying README.txt and data‑dictionary.csv files.
+
+#### Metadata
+Dataset name: Divorces by duration of marriage
+
+Data provider: United Nations Statistics Division (UNSD)
+
+Temporal coverage: Collected since 1948 — analysis focuses on the most recent 30 years (1995–2025)
+
+Spatial coverage: 105 countries or areas (questionnaires sent to over 230 countries and areas) — analysis focuses on European countries
+
+Licence / Terms of use: Released under the UNdata Terms of Use, allowing free reuse with attribution but prohibiting endorsement and commercial misuse
+
+Format: CSV
+
+Last updated: 26 February 2026
+
+Data type: Administrative population data derived from national civil registration systems. Although census‑style in that reporting countries provide complete counts of all recorded divorces, the global dataset is incomplete because some countries do not legally recognise divorce or do not submit divorce statistics to the UN Demographic Yearbook.
+
+Privacy / Ethics: Aggregated data with no direct identifiers
+
+#### Key Limitations
+- Incomplete global coverage — Many countries do not submit divorce‑duration statistics to the UN, resulting in substantial geographic gaps. Europe provides the most complete and consistent divorce‑duration data, so the analysis focuses on European countries to ensure comparability and minimise bias introduced by missing or irregular data
+
+- Differences in duration‑of‑marriage categories — Countries use different binning schemes, requiring standardisation and sometimes forcing loss of detail.
+
+- Legal and institutional differences — Countries vary widely in divorce laws, waiting periods, and registration systems. Some report divorces by year of occurrence while others use year of registration, affecting comparability across countries.
+
+### Data Download
+The following section describes how the data can be downloaded from its source and what initial data wrangling steps have been taken.
+1. Access the dataset via <https://data.un.org/> 
+2. Search for 'Divorces by duration of marriage' or access it directly via <https://data.un.org/Data.aspx?q=Divorces+by+duration+of+marriage&d=POP&f=tableCode%3a87>
+3. Select "Download"
+```{r}
+# Initial data cleaning before analysis
+
+# Explore the data completeness
+
+library(tidyverse)
+library(janitor)
+library(countrycode)
+library(stringr)
+library(sf)
+library(rnaturalearthdata)
+library(rnaturalearth)
+
+divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
+
+# Removing footnotes
+divorce_data <- divorce_data |>
+  clean_names() |>
+  mutate(
+    duration_of_marriage = str_trim(duration_of_marriage),
+    year = str_trim(year)
+  ) |>
+  # keep only valid years to remove the footnotes
+  filter(str_detect(year, "^[0-9]{4}$"))
+
+# Create percent_of_total for comparability
+# In duration of marriage column, there are "Total" in the observation, we will calculate the percent of total from this but will remove the "Total" in the column afterwards
+# Step 1: keep all total rows, but rank them by quality
+totals <- divorce_data |>
+  filter(duration_of_marriage == "Total") |>
+  mutate(
+    quality_rank = case_when(
+      reliability == "Final figure, complete" ~ 1,
+      record_type == "Data tabulated by year of occurrence" ~ 2,
+      record_type == "Data tabulated by year of registration" ~ 3,
+      TRUE ~ 4
+    )
+  ) |>
+  arrange(country_or_area, year, quality_rank) |>
+  group_by(country_or_area, year) |>
+  slice(1) |>   # <-- Keep only the best single row
+  ungroup() |>
+  select(country_or_area, year, total_value = value)
+
+
+# Step 2: Keep duration categories only
+details <- divorce_data |>
+  filter(!duration_of_marriage %in% c("Total", "Not stated"))
+
+
+# Step 3: Join totals back in
+clean_divorce <- details |>
+  left_join(totals, by = c("country_or_area", "year")) |>
+  mutate(
+    percent_of_total = value / total_value,
+    continent = countrycode(country_or_area, "country.name", "continent")
+  ) |>
+  # Keep only recent 30 years
+  filter(as.numeric(year) >= 1995)
+
+# Manage the difference in binning across countries
+clean_divorce <- clean_divorce |>
+  mutate(
+    # Extract all numbers from the bucket (handles "1", "1-3", "10 +", "Less than 5")
+    nums = str_extract_all(duration_of_marriage, "\\d+"),
+    nums = lapply(nums, as.numeric),
+    
+    # Determine the maximum number in the bucket
+    max_years = sapply(nums, function(x) if(length(x) == 0) NA else max(x)),
+    
+     # Adjust for "Less than X" so upper bound becomes X - 1
+    max_years = case_when(
+      str_detect(str_to_lower(duration_of_marriage), "less") ~ max_years - 1,
+      TRUE ~ max_years
+    ),
+    # Standardise into global bins
+    duration_std = case_when(
+      max_years <= 1 ~ "0-1",
+      max_years <= 2 ~ "1-2",
+      max_years <= 4 ~ "3-4",
+      max_years <= 9 ~ "5-9",
+      max_years >= 10 ~ "10+",
+      TRUE ~ NA_character_
+    )
+  ) |>
+  select(-nums, -max_years, - duration_of_marriage)
+```
+
+Countries report duration‑of‑marriage categories using inconsistent formats, including single years, multi‑year ranges, open‑ended values (e.g., “10+”), and “Less than X” labels. To enable cross‑country comparison, I extracted all numeric values from each label and used the maximum value as the upper bound of the category. For “Less than X” labels, I assumed the category covers 0 to (X–1) years, as the UN does not specify the exact boundaries. These upper bounds were then collapsed into five global bins (0–1, 1–2, 3–4, 5–9, 10+). This approach standardises heterogeneous reporting but introduces limitations, including loss of granularity, potential misclassification of ambiguous labels, and uncertainty about how “Less than X” categories are defined across countries.
+
 
 <!-- Task 2 Tab: Writing your blogpost -->
 
@@ -31,13 +166,13 @@ There is no strict structure for you to follow. However, here is a skeleton stru
 
 2.  Motivation
 
-    Why Explore the Seven-Year Itch?
+## Why Explore the Seven-Year Itch?
 
     The *Seven‑Year Itch* is one of those ideas that refuses to die — a cultural belief that marriages tend to break down around the seven‑year mark. It shows up in films, advice columns, and casual conversations, yet rarely gets tested with real data. That gap between myth and measurable reality makes it worth examining.
 
     Understanding *when* marriages tend to end isn’t just trivia. Divorce timing reflects social norms, economic pressures, and how relationships evolve over the life course. If certain durations consistently show higher divorce counts, those patterns can reveal something meaningful about the stresses couples face at different stages.
 
-    The United Nations Statistics Division “Divorces by duration of marriage” dataset provides a rare opportunity to look at this question across countries and over time. By analysing divorce counts by marriage length, we can move beyond anecdotes and see whether the seven‑year peak actually appears — or whether the myth collapses under global demographic ev
+    The United Nations Statistics Division “Divorces by duration of marriage” dataset provides a rare opportunity to look at this question across countries and over time. By analysing divorce counts by marriage length, we can move beyond anecdotes and see whether the seven‑year peak actually appears — or whether the myth collapses under global demographic evidence
 
 3.  Data\
 
@@ -103,7 +238,6 @@ totals <- divorce_data |>
 # Step 2: keep duration categories only
 details <- divorce_data |>
   filter(!duration_of_marriage %in% c("Total", "Not stated"))
-
 
 
 # Step 3: join totals back in
