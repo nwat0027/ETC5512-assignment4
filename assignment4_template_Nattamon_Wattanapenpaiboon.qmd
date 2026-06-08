@@ -238,11 +238,16 @@ The bar graph below shows how common divorce is at different stages of marriage 
 
 ```{r}
 #| echo: false
-avg_duration <- europe_divorce |> 
-  mutate(duration_std = factor(duration_std,
-                               levels = c("0-1", "1-2", "3-4", "5-9", "10+"))) |>
+avg_duration <- europe_divorce |>
+   mutate(duration_std = factor(
+      duration_std,
+      levels = c("0-1", "1-2", "3-4", "5-9", "10+"))) |>
+  group_by(year, duration_std) |>
+  summarise(yearly_avg = mean(percent_of_total, na.rm = TRUE)) |>
+  ungroup() |>
   group_by(duration_std) |>
-  summarise(mean_pct = mean(percent_of_total, na.rm = TRUE))
+  summarise(mean_pct = mean(yearly_avg, na.rm = TRUE))
+  
 
 ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
   geom_col() +
@@ -258,7 +263,7 @@ ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
   labs(
     title = "Average Divorce Timing Across Europe",
     x = "Years of Marriage",
-    y = "Average % of Divorces",
+    y = "Average Sahre of Divorces",
     fill = "Duration"
   ) +
   theme_minimal()
@@ -268,6 +273,8 @@ ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
 Across Europe, divorces are relatively uncommon in the first few years of marriage. The share rises steadily and reaches its highest levels between 3–4 years and 5–9 years of marriage. These mid‑marriage durations account for the largest proportion of divorces, while very early divorces (0–1 or 1–2 years) are much less common. This pattern suggests that marital strain tends to accumulate over time rather than appearing immediately — and that the “Seven‑Year Itch” sits within a broader mid‑marriage peak rather than standing out as a sharp spike.
 
 ### Where in Europe do divorces peak?
+
+Across Europe, divorces with reported duration information make up only a small share of total cases in any single marriage‑length category. Very early divorces (0–1 years) are the least common, accounting for only about 2–3% of reported cases in the average country. The share increases gradually with marriage length, rising to around 6% for 1–2 and 3–4 years, and reaching roughly 7% for 5–9 years. The highest share appears in the 10+ years category, at about 11% of reported cases. These values reflect the relative distribution among divorces that include duration data, not all divorces, since many countries report only a subset of cases with duration information. Even so, the pattern shows that mid‑ and longer‑duration marriages are more likely to end in divorce than very early ones.
 
 While the Europe‑wide averages show that divorces tend to cluster in the mid‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
 
@@ -348,8 +355,7 @@ trend_data <- europe_divorce |>
     year = as.numeric(year),
     duration_std = factor(
       duration_std,
-      levels = c("0-1", "1-2", "3-4", "5-9", "10+")
-    )
+      levels = c("0-1", "1-2", "3-4", "5-9", "10+"))
   ) |>
   group_by(year, duration_std) |>
   summarise(
@@ -373,7 +379,7 @@ ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
     title = "How Divorce Timing Has Shifted Over Time",
     subtitle = "Average share of divorces in each duration category, 1995–2025",
     x = "Year",
-    y = "Average % of Divorces",
+    y = "Average Share of Divorces",
     fill = "Duration"
   ) +
   theme_minimal()
