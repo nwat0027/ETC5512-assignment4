@@ -69,7 +69,7 @@ divorce_data <- divorce_data |>
 # ============================================================
 # 3. Construct percent-of-total (create comparable measures)
 # ============================================================
-# Step 1: Extract and rank "Total" rows by data quality
+# 3.1 Extract and rank "Total" rows by data quality
 totals <- divorce_data |>
   filter(duration_of_marriage == "Total") |>
   mutate(
@@ -87,26 +87,14 @@ totals <- divorce_data |>
   select(country_or_area, year, total_value = value)
 
 
-# Step 2: Keep duration categories only
+# 3.2 Keep duration categories only
 details <- divorce_data |>
   filter(!duration_of_marriage %in% c("Total", "Not stated"))
 
-
-# Step 3: Join totals back in and compute percent_of_total
-clean_divorce <- details |>
-  left_join(totals, by = c("country_or_area", "year")) |>
-  mutate(
-    percent_of_total = value / total_value,
-    # Add column continent for further grouping analysis
-    continent = countrycode(country_or_area, "country.name", "continent")
-  ) |>
-  # Keep only recent 30 years
-  filter(as.numeric(year) >= 1995)
-
-# ============================================================
-# 4. Standardise duration-of-marriage categories
-# ============================================================
-clean_divorce <- clean_divorce |>
+# ==========================================================================
+# 4. Standardise duration-of-marriage categories BEFORE computing percentages
+# ==========================================================================
+details_std <- details |>
   mutate(
     # Extract all numbers from the bucket (handles "1", "1-3", "10 +", "Less than 5")
     nums = str_extract_all(duration_of_marriage, "\\d+"),
@@ -132,8 +120,29 @@ clean_divorce <- clean_divorce |>
   ) |>
   select(-nums, -max_years, - duration_of_marriage)
 
+# ==========================================================================
+# 3.3 Join totals back in and compute percent_of_total
+clean_divorce <- details_std |>
+  left_join(totals, by = c("country_or_area", "year")) |>
+  group_by(country_or_area, year, duration_std, total_value) |>
+  summarise(
+    value = sum(value, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    percent_of_total = value / total_value,
+    
+# ==========================================================================
+# 5. Add continent variable and filter to analysis period (1995–2025)
+# ==========================================================================
+    # Add column continent for further grouping analysis
+    continent = countrycode(country_or_area, "country.name", "continent")
+  ) |>
+  # Keep only recent 30 years
+  filter(as.numeric(year) >= 1995)
+
 # ============================================================
-# 5. Harmonise country names for mapping
+# 6. Harmonise country names and restrict to only Europe
 # ============================================================
 world <- ne_countries(scale = "medium", returnclass = "sf")
 world_names <- world |>
@@ -170,16 +179,13 @@ clean_divorce <- clean_divorce |>
   select(-name, -country_or_area) |>
   relocate(country)
 
-
-# ============================================================
-# 6. Final dataset preparation (Restrict dataset to Europe)
-# ============================================================
 # The dataset was filtered to include only European countries, reflecting the region with the most complete reporting.
-europe_divorce <- clean_divorce |> filter(continent == "Europe") |> 
-  # Keep only relevant columns
-  select(-area, -record_type, -reliability, -source_year, -value_footnotes, -continent) |> relocate(duration_std, .after = year)
+europe_divorce <- clean_divorce |> filter(continent == "Europe") 
 
-write_csv(europe_divorce, "data/clean_europe_divorces_by_duration_of_marriage.csv")
+# ============================================================
+# 7. Save the cleaned dataset
+# ============================================================
+write_csv(europe_divorce, "data/europe_divorces_by_duration_of_marriage.csv")
 
 ```
 
@@ -274,9 +280,9 @@ Across Europe, divorces are relatively uncommon in the first few years of marria
 
 ### Where in Europe do divorces peak?
 
-Across Europe, divorces with reported duration information make up only a small share of total cases in any single marriage‑length category. Very early divorces (0–1 years) are the least common, accounting for only about 2–3% of reported cases in the average country. The share increases gradually with marriage length, rising to around 6% for 1–2 and 3–4 years, and reaching roughly 7% for 5–9 years. The highest share appears in the 10+ years category, at about 11% of reported cases. These values reflect the relative distribution among divorces that include duration data, not all divorces, since many countries report only a subset of cases with duration information. Even so, the pattern shows that mid‑ and longer‑duration marriages are more likely to end in divorce than very early ones.
+Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.
 
-While the Europe‑wide averages show that divorces tend to cluster in the mid‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
+While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
 
 The map below shows the typical divorce duration for each European country, based on **the most common (peak) duration category** observed between 1995 and 2025. Each country is coloured according to the marriage‑length bin that accounts for the largest share of its divorces.
 
