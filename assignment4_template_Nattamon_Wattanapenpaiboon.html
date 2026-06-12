@@ -119,12 +119,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="data-description" class="level3">
 <h3 class="anchored" data-anchor-id="data-description">Data description</h3>
-<p>This analysis uses the <em>Divorces by duration of marriage</em> dataset from the United Nations Statistics Division (UNSD), which provides official administrative counts of all recorded divorces by duration of marriage. These are census‑style population data derived from national civil registration systems, making them well‑suited to examining when divorces typically occur and whether they cluster around the so‑called “Seven‑Year Itch.” The dataset covers 105 countries, with the most consistent reporting for European countries. For this analysis, the period 1995-2025 is used to provide a clean and comparable 30-year window. It is released under the UNdata Terms of Use, permitting academic reuse with attribution, and contains only aggregated counts with no personal identifiers, so there are no privacy risks. Key limitations include incomplete global coverage, variation in duration‑of‑marriage categories, and differences in national divorce laws and registration practices.</p>
+<p>This analysis uses the <em>Divorces by duration of marriage</em> dataset from the United Nations Statistics Division (UNSD), which provides official administrative counts of all recorded divorces by duration of marriage. These are administrative census data derived from national civil registration systems, making them well‑suited to examining when divorces typically occur and whether they cluster around the so‑called “Seven‑Year Itch”. The dataset covers 105 countries, with the most consistent reporting for European countries. For this analysis, the period 1995-2025 is used to provide a clean and comparable 30-year window. It is released under the UNdata Terms of Use, permitting academic reuse with attribution, and contains only aggregated counts with no personal identifiers, so there are no privacy risks. Key limitations include incomplete global coverage, variation in duration‑of‑marriage categories, and differences in national divorce laws and registration practices.</p>
 <p>Comprehensive metadata and data‑transformation details are documented in the README.txt and data‑dictionary.csv, while full citations appear in the Blog Post tab.</p>
 </section>
 <section id="data-download" class="level3">
 <h3 class="anchored" data-anchor-id="data-download">Data Download</h3>
-<p>The following section describes how the data can be downloaded from its source and what initial data wrangling steps have been taken.</p>
+<p>The following section describes how the data can be downloaded from its source and what data wrangling steps have been taken.</p>
 <p>1. Access the dataset via <a href="https://data.un.org/" class="uri">https://data.un.org</a></p>
 <p>2. Search for ‘Divorces by duration of marriage’ or access it directly via <a href="https://data.un.org/Data.aspx?q=Divorces+by+duration+of+marriage&amp;d=POP&amp;f=tableCode%3a87" class="uri">https://data.un.org/Data.aspx?q=Divorces+by+duration+of+marriage&amp;d=POP&amp;f=tableCode%3a87</a></p>
 <p>3. Select “Download”</p>
@@ -316,12 +316,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 </div>
-<p>Across Europe, divorces are relatively uncommon in the first few years of marriage. The share rises steadily and reaches its highest levels between 3–4 years and 5–9 years of marriage. These mid‑marriage durations account for the largest proportion of divorces, while very early divorces (0–1 or 1–2 years) are much less common. This pattern suggests that marital strain tends to accumulate over time rather than appearing immediately — and that the “Seven‑Year Itch” sits within a broader mid‑marriage peak rather than standing out as a sharp spike.</p>
+<p>Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.</p>
 </section>
 <section id="where-in-europe-do-divorces-occur-earlier-or-later-in-a-marriage" class="level3">
 <h3 class="anchored" data-anchor-id="where-in-europe-do-divorces-occur-earlier-or-later-in-a-marriage">Where in Europe do divorces occur earlier or later in a marriage?</h3>
-<p>Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.</p>
-<p>While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.</p>
+<p>While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.</p>
 <p>The map below shows the typical length of marriage before divorce in each European country, based on a <strong>weighted average of divorce‑duration categories from 1995 to 2025</strong>. To summarise the open‑ended “10+ years” category, I assume a midpoint of 15 years, reflecting the fact that many divorces in this group occur well beyond the ten‑year mark. Countries are coloured according to the resulting average number of years couples were married before divorcing, grouped into broad duration categories for clarity.</p>
 <div class="cell">
 <div class="cell-output-display">
@@ -347,7 +346,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
 </div>
 </div>
-<p>A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, with no indication that they are becoming more common. Mid‑marriage divorces in the 5–9‑year range form a stable middle layer, but the most striking feature of the chart is the persistent dominance of long‑marriage divorces. The 10+ category accounts for the largest share of divorces across all years. This stability over time suggests that structural and demographic factors—rather than a fixed psychological milestone—shape when divorces tend to occur.</p>
+<p>A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, with no indication that they are becoming more common. Mid‑marriage divorces in the 5–9‑year range form a stable middle layer, but the most striking feature of the chart is the persistent dominance of long‑marriage divorces. The 10+ category accounts for the largest share of divorces across all years.</p>
 </section>
 <section id="so-does-the-seven-year-itch-exist" class="level3">
 <h3 class="anchored" data-anchor-id="so-does-the-seven-year-itch-exist">So does the Seven-Year Itch exist?</h3>
@@ -380,14 +379,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="how-i-used-ai-in-this-assignment-question-8" class="level3">
 <h3 class="anchored" data-anchor-id="how-i-used-ai-in-this-assignment-question-8">How I Used AI in This Assignment (Question 8)</h3>
-<p>I used AI mainly as a support tool for clarifying concepts, checking my reasoning, and improving the clarity of my written explanations. It was particularly helpful when I needed to articulate the logic behind my data‑cleaning steps or describe why certain transformations were necessary. However, AI was not consistently reliable when it came to coding: I often had to provide additional context, correct its assumptions about my data structure, or adapt its suggestions to fit the actual pipeline. In several cases—especially when my initial cleaning steps produced non‑unique country–year–duration rows—I questioned the AI’s output and verified it by inspecting intermediate tables myself. This process helped me understand the underlying issue more deeply and ultimately restructure the workflow. AI also helped me learn new ways to phrase methodological explanations, but I always validated the technical parts independently to ensure the analysis remained accurate and defensible.</p>
+<p>I used AI mainly as a support tool for clarifying concepts, checking my reasoning, and improving the clarity of my written explanations. It was particularly helpful when I needed to articulate the logic behind my data‑cleaning steps or describe why certain transformations were necessary. However, AI was not consistently reliable when it came to coding: I often had to provide additional context, correct its assumptions about my data structure, or adapt its suggestions to fit the actual pipeline. In several cases—especially when my initial cleaning steps produced non‑unique country–year–duration rows—I questioned the AI’s output and verified it by inspecting intermediate tables myself. This process helped me understand the underlying issue more deeply and ultimately restructure the workflow. AI also helped me learn new ways to phrase methodological explanations, but I always validated the technical parts independently to ensure the analysis remained accurate and defensible. (AI Use Statement provided at the end of this section)</p>
 </section>
 <section id="iterative-process-question-9" class="level3">
 <h3 class="anchored" data-anchor-id="iterative-process-question-9">Iterative Process (Question 9)</h3>
-<p>This is the link to my git repository <a href="https://github.com/nwat0027/ETC5512-assignment4/" class="uri">https://github.com/nwat0027/ETC5512-assignment4/</a> To demonstrate my iterative process in completing the assignment, here are 4 commits on github that show changes of my analysis. Raw files are also provided in the “earlier_versions” folder.</p>
+<p>This is the link to my git repository <a href="https://github.com/nwat0027/ETC5512-assignment4/" class="uri">https://github.com/nwat0027/ETC5512-assignment4/</a> To demonstrate my iterative process in completing the assignment, here are 4 commits on github that show changes in my analysis. Raw files are also provided in the “earlier_versions” folder.</p>
 <section id="commit-b9046bc---change-the-colour-palette-for-better-interpretation" class="level4">
 <h4 class="anchored" data-anchor-id="commit-b9046bc---change-the-colour-palette-for-better-interpretation">Commit #b9046bc - “change the colour palette for better interpretation”</h4>
-<p>To improve the interpretability of the visualisation, I revised the colour palette used for the duration categories by using a sequential light‑to‑dark blue scale, where the lightest shade represents the shortest duration category and progressively darker shades represent longer durations. Raw</p>
+<p>To improve the interpretability of the visualisation, I revised the colour palette used for the duration categories by using a sequential light‑to‑dark blue scale, where the lightest shade represents the shortest duration category and progressively darker shades represent longer durations.</p>
 </section>
 <section id="commit-054466c---edit-logic-of-finding-europe-average" class="level4">
 <h4 class="anchored" data-anchor-id="commit-054466c---edit-logic-of-finding-europe-average">Commit #054466c - “edit logic of finding europe average”</h4>
@@ -401,6 +400,18 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h4 class="anchored" data-anchor-id="commit-ae36bf2---change-calculation-method-from-peak-duration-to-weighted-average-for-more-meaningful-map">Commit #ae36bf2 - “change calculation method from peak duration to weighted average for more meaningful map”</h4>
 <p>The previous map I created from the incorrectly processed data showed almost every country falling into the “10+” category, which made the visualisation uninformative and suggested that my earlier method was masking variation. Hence, instead of mapping the most common duration bin, I switched to calculating a weighted average duration for each country, which provides a more meaningful and interpretable summary of divorce timing across Europe.</p>
 </section>
+</section>
+<section id="ai-use-statement" class="level3">
+<h3 class="anchored" data-anchor-id="ai-use-statement">AI Use Statement</h3>
+<p>Artificial intelligence (AI) tools were used as a support resource during this project. Specifically, AI was used to:</p>
+<ul>
+<li>Explain R functions and packages used for data cleaning, transformation, and visualisation.</li>
+<li>Assist with debugging code and identifying syntax errors.</li>
+<li>Suggest alternative approaches for data visualisation and exploratory analysis.</li>
+<li>Improve the clarity, grammar, and readability of written explanations and figure captions.</li>
+</ul>
+<p>AI was not used to generate the analysis, interpret the results, or draw conclusions. All data preparation, statistical analysis, visualisations, interpretations, and final written content were reviewed, verified, and completed by me.</p>
+<p>This is the link to prompt: <a href="https://chatgpt.com/share/6a2bfb10-c51c-83ec-b256-443ed47ba3f9" class="uri">https://chatgpt.com/share/6a2bfb10-c51c-83ec-b256-443ed47ba3f9</a></p>
 </section>
 </div>
 </div>

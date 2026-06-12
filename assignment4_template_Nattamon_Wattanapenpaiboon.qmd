@@ -20,13 +20,13 @@ This blog post investigates whether the cultural idea of the **Seven-Year Itch**
 
 ### Data description
 
-This analysis uses the *Divorces by duration of marriage* dataset from the United Nations Statistics Division (UNSD), which provides official administrative counts of all recorded divorces by duration of marriage. These are census‑style population data derived from national civil registration systems, making them well‑suited to examining when divorces typically occur and whether they cluster around the so‑called “Seven‑Year Itch.” The dataset covers 105 countries, with the most consistent reporting for European countries. For this analysis, the period 1995-2025 is used to provide a clean and comparable 30-year window. It is released under the UNdata Terms of Use, permitting academic reuse with attribution, and contains only aggregated counts with no personal identifiers, so there are no privacy risks. Key limitations include incomplete global coverage, variation in duration‑of‑marriage categories, and differences in national divorce laws and registration practices.
+This analysis uses the *Divorces by duration of marriage* dataset from the United Nations Statistics Division (UNSD), which provides official administrative counts of all recorded divorces by duration of marriage. These are administrative census data derived from national civil registration systems, making them well‑suited to examining when divorces typically occur and whether they cluster around the so‑called “Seven‑Year Itch”. The dataset covers 105 countries, with the most consistent reporting for European countries. For this analysis, the period 1995-2025 is used to provide a clean and comparable 30-year window. It is released under the UNdata Terms of Use, permitting academic reuse with attribution, and contains only aggregated counts with no personal identifiers, so there are no privacy risks. Key limitations include incomplete global coverage, variation in duration‑of‑marriage categories, and differences in national divorce laws and registration practices.
 
 Comprehensive metadata and data‑transformation details are documented in the README.txt and data‑dictionary.csv, while full citations appear in the Blog Post tab.
 
 ### Data Download
 
-The following section describes how the data can be downloaded from its source and what initial data wrangling steps have been taken.
+The following section describes how the data can be downloaded from its source and what data wrangling steps have been taken.
 
 1\. Access the dataset via [https://data.un.org](https://data.un.org/){.uri}
 
@@ -311,13 +311,11 @@ ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
 
 ```
 
-Across Europe, divorces are relatively uncommon in the first few years of marriage. The share rises steadily and reaches its highest levels between 3–4 years and 5–9 years of marriage. These mid‑marriage durations account for the largest proportion of divorces, while very early divorces (0–1 or 1–2 years) are much less common. This pattern suggests that marital strain tends to accumulate over time rather than appearing immediately — and that the “Seven‑Year Itch” sits within a broader mid‑marriage peak rather than standing out as a sharp spike.
+Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.
 
 ### Where in Europe do divorces occur earlier or later in a marriage?
 
-Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.
-
-While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
+While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
 
 The map below shows the typical length of marriage before divorce in each European country, based on a **weighted average of divorce‑duration categories from 1995 to 2025**. To summarise the open‑ended “10+ years” category, I assume a midpoint of 15 years, reflecting the fact that many divorces in this group occur well beyond the ten‑year mark. Countries are coloured according to the resulting average number of years couples were married before divorcing, grouped into broad duration categories for clarity.
 
@@ -443,7 +441,7 @@ ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
 
 ```
 
-A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, with no indication that they are becoming more common. Mid‑marriage divorces in the 5–9‑year range form a stable middle layer, but the most striking feature of the chart is the persistent dominance of long‑marriage divorces. The 10+ category accounts for the largest share of divorces across all years. This stability over time suggests that structural and demographic factors—rather than a fixed psychological milestone—shape when divorces tend to occur.
+A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, with no indication that they are becoming more common. Mid‑marriage divorces in the 5–9‑year range form a stable middle layer, but the most striking feature of the chart is the persistent dominance of long‑marriage divorces. The 10+ category accounts for the largest share of divorces across all years.
 
 ### So does the Seven-Year Itch exist?
 
@@ -473,29 +471,50 @@ Arel-Bundock V, Enevoldsen N, Yetman C (2018). “countrycode: An R package to c
 
 A lot of the work behind this project was slow and unglamorous. One of the most tedious tasks was dealing with the completely unstandardised duration‑of‑marriage categories: countries used overlapping ranges, inconsistent labels, and sometimes open‑ended buckets, which meant I had to manually inspect and recode many variations before they could be grouped into five consistent bins. Early on, my cleaning steps even produced non‑unique country–year–duration rows, so I spent a lot of time re‑running the pipeline, checking intermediate tables, and making sure each country–year ended up with exactly one row per bin. I also had to harmonise country names, verify that joins didn’t silently drop rows, and repeatedly confirm that percentages summed correctly. None of this was technically difficult, but it was repetitive, manual, and essential for producing a dataset I could trust.
 
-### Challenges Faced During the Analysis (Question 6) 
+### Challenges Faced During the Analysis (Question 6)
+
 The biggest challenge was realising that my initial cleaning pipeline was structured incorrectly. I originally computed percentages before standardising duration categories, which produced duplicated rows and totals that didn’t add up. Fixing this required rethinking the entire workflow and moving the standardisation step earlier so that each country–year–duration combination was unique before aggregation. Another challenge was dealing with incomplete reporting across countries, which forced me to narrow the scope to Europe and make explicit assumptions—such as assigning a midpoint of 15 years to the open‑ended “10+” category. These choices forced me to make several non‑trivial assumptions and analytical decisions—especially around how to treat open‑ended categories and incomplete reporting—and working through them was essential for producing results that were both defensible and meaningful.
 
-### Imperfect Parts and Future Improvements (Question 7) 
+### Imperfect Parts and Future Improvements (Question 7)
+
 A key limitation of my analysis is that it ultimately focuses only on Europe, because many countries outside the region reported incomplete or inconsistent duration breakdowns, making global comparisons unreliable within the scope of this assignment. Another imperfect aspect is the way I had to group duration‑of‑marriage categories: the raw data uses overlapping ranges, inconsistent labels, and open‑ended bins, so forcing them into five standard categories required simplifying assumptions that inevitably blur some nuance. Although the cleaning pipeline now ensures unique country–year–duration rows, the underlying binning still reflects compromises rather than perfectly aligned definitions. In future work, I would like to expand the analysis beyond Europe by developing methods to handle missing or partial duration distributions, and refine the duration modelling by estimating continuous distributions or using probabilistic approaches for partially overlapping bins instead of relying on fixed midpoints and manual recoding.
 
 ### How I Used AI in This Assignment (Question 8)
-I used AI mainly as a support tool for clarifying concepts, checking my reasoning, and improving the clarity of my written explanations. It was particularly helpful when I needed to articulate the logic behind my data‑cleaning steps or describe why certain transformations were necessary. However, AI was not consistently reliable when it came to coding: I often had to provide additional context, correct its assumptions about my data structure, or adapt its suggestions to fit the actual pipeline. In several cases—especially when my initial cleaning steps produced non‑unique country–year–duration rows—I questioned the AI’s output and verified it by inspecting intermediate tables myself. This process helped me understand the underlying issue more deeply and ultimately restructure the workflow. AI also helped me learn new ways to phrase methodological explanations, but I always validated the technical parts independently to ensure the analysis remained accurate and defensible.
 
-### Iterative Process (Question 9) 
-This is the link to my git repository <https://github.com/nwat0027/ETC5512-assignment4/>
-To demonstrate my iterative process in completing the assignment, here are 4 commits on github that show changes of my analysis. Raw files are also provided in the "earlier_versions" folder.
+I used AI mainly as a support tool for clarifying concepts, checking my reasoning, and improving the clarity of my written explanations. It was particularly helpful when I needed to articulate the logic behind my data‑cleaning steps or describe why certain transformations were necessary. However, AI was not consistently reliable when it came to coding: I often had to provide additional context, correct its assumptions about my data structure, or adapt its suggestions to fit the actual pipeline. In several cases—especially when my initial cleaning steps produced non‑unique country–year–duration rows—I questioned the AI’s output and verified it by inspecting intermediate tables myself. This process helped me understand the underlying issue more deeply and ultimately restructure the workflow. AI also helped me learn new ways to phrase methodological explanations, but I always validated the technical parts independently to ensure the analysis remained accurate and defensible. (AI Use Statement provided at the end of this section)
+
+### Iterative Process (Question 9)
+
+This is the link to my git repository <https://github.com/nwat0027/ETC5512-assignment4/> To demonstrate my iterative process in completing the assignment, here are 4 commits on github that show changes in my analysis. Raw files are also provided in the "earlier_versions" folder.
 
 #### Commit #b9046bc - "change the colour palette for better interpretation"
-To improve the interpretability of the visualisation, I revised the colour palette used for the duration categories by using a sequential light‑to‑dark blue scale, where the lightest shade represents the shortest duration category and progressively darker shades represent longer durations. Raw
- 
+
+To improve the interpretability of the visualisation, I revised the colour palette used for the duration categories by using a sequential light‑to‑dark blue scale, where the lightest shade represents the shortest duration category and progressively darker shades represent longer durations.
+
 #### Commit #054466c - "edit logic of finding europe average"
+
 Previously, I calculated the overall mean of percent_of_total across all years, which unintentionally compressed the values and didn’t reflect how divorce durations were distributed in a typical year. I realised this approach was misleading, so I switched to a two‑stage averaging process: first computing the average share of each duration bin within each year, and then averaging those yearly values across time. This affects the result and written analysis.
 
-#### Commit #f7fb10c - "change steps in data cleaning" 
+#### Commit #f7fb10c - "change steps in data cleaning"
+
 During data cleaning, I restructured the workflow so that the standardisation of duration‑of‑marriage categories happens before joining totals and computing percent_of_total. In the original pipeline, percentages were calculated first and only then collapsed into standardised bins, which caused duplicated rows, incorrect proportions, and totals that did not sum to one. By moving the standardisation step earlier, I ensured that each country–year–duration combination was unique before aggregation, allowing me to correctly sum values within bins and compute accurate percentages. This also impacted all the results and conclusions I drew, therefore the analysis was also rewritten.
 
 #### Commit #ae36bf2 - "change calculation method from peak duration to weighted average for more meaningful map"
+
 The previous map I created from the incorrectly processed data showed almost every country falling into the “10+” category, which made the visualisation uninformative and suggested that my earlier method was masking variation. Hence, instead of mapping the most common duration bin, I switched to calculating a weighted average duration for each country, which provides a more meaningful and interpretable summary of divorce timing across Europe.
 
+
+### AI Use Statement
+Artificial intelligence (AI) tools were used as a support resource during this project. Specifically, AI was used to:
+
+- Explain R functions and packages used for data cleaning, transformation, and visualisation.
+- Assist with debugging code and identifying syntax errors.
+- Suggest alternative approaches for data visualisation and exploratory analysis.
+- Improve the clarity, grammar, and readability of written explanations and figure captions.
+
+AI was not used to generate the analysis, interpret the results, or draw conclusions. All data preparation, statistical analysis, visualisations, interpretations, and final written content were reviewed, verified, and completed by me.
+
+This is the link to prompt: <https://chatgpt.com/share/6a2bfb10-c51c-83ec-b256-443ed47ba3f9>
 :::
+
+
