@@ -1,0 +1,8 @@
+variable,type,description,transformation,example
+country,character,Country name.,Harmonised country names to a consistent naming scheme (rnaturalearth R package),Faroe Islands
+year,double,Calendar year of the divorce statistics.,Converted to numeric. Filtered to retain only valid years between 1995 and 2025.,2023
+duration_std,character,Standardised duration‑of‑marriage category.,"Collapsed heterogeneous duration labels into five consistent bins: 0-1, 1-2, 3-4, 5-9, 10+",0-1
+total_value,double,Total number of divorces for a given country–year.,Extracted from the UN “Total divorces” series.,21231
+value,double,Number of divorces in the given duration category for that country–year.,Summed across raw UN rows when multiple original categories collapsed into the same duration bin.,784
+percent_of_total,double,Share of divorces in the given duration category.,Computed as value / total_value,0.085986355884025
+continent,character,Continent to which the country belongs.,Added using countrycode R package,Europe

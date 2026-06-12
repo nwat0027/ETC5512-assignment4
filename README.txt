@@ -73,6 +73,11 @@ ETC5512-assignment4
 ├── data
     ├──  UNdata_Export_20260528_021328529.csv     -> raw data of "Divorces by duration of marriage" provided by UNSD
     ├──  clean_europe_divorces_by_duration_of_marriage.csv       -> Processed data used in the analysis, see data dictionary for details
-    ├──  data-dictionary.xlsx   -> Data dictionary providing detailed information about the dataset after processing
+    ├──  data-dictionary.csv    -> Data dictionary providing detailed information about the dataset after processing
 ├── README.txt                  -> this file
+├── earlier_versions            -> eariler qmd. versions showing iterative process, downloaded from github
+    ├── version_1_b9046bc.qmd -> from commit #b9046bc
+    ├── version_2_054466c.qmd -> from commit #054466c
+    ├── version_3_f7fb10c.qmd -> from commit #f7fb10c
+    ├── version_4_ae36bf2.qmd -> from commit #ae36bf2
 └── Assignment4.Rproj

@@ -1,0 +1,444 @@
+---
+title: "Is The Seven-Year Itch Real?"
+subtitle: "Assignment 4 ETC5512"
+author: "Nattamon Wattanapenpaiboon"
+format: html
+editor: visual
+execute:
+  warning: false
+  message: false
+---
+
+::: panel-tabset
+<!-- Task 1 Tab: Data and Documenting -->
+
+## Data and Documenting
+
+### Topic of this work
+
+This blog post investigates whether the cultural idea of the **Seven-Year Itch**—the belief that marriages tend to break down around the seven-year mark—has any empirical support in global divorce data. Although the concept is widely referenced in popular culture, it has rarely been examined using large-scale longitudinal evidence. By analysing divorce patterns across countries and over time, this dataset provides a unique opportunity to evaluate a familiar cultural belief through a demographic lens.
+
+### Data description
+
+This analysis uses the *Divorces by duration of marriage* dataset from the United Nations Statistics Division (UNSD), which provides official administrative counts of all recorded divorces by duration of marriage. These are census‑style population data derived from national civil registration systems, making them well‑suited to examining when divorces typically occur and whether they cluster around the so‑called “Seven‑Year Itch.” The dataset covers 105 countries, with the most consistent reporting for European countries. For this analysis, the period 1995-2025 is used to provide a clean and comparable 30-year window. It is released under the UNdata Terms of Use, permitting academic reuse with attribution, and contains only aggregated counts with no personal identifiers, so there are no privacy risks. Key limitations include incomplete global coverage, variation in duration‑of‑marriage categories, and differences in national divorce laws and registration practices.
+
+Comprehensive metadata and data‑transformation details are documented in the README.txt and data‑dictionary.xlsx, while full citations appear in the Blog Post tab.
+
+### Data Download
+
+The following section describes how the data can be downloaded from its source and what initial data wrangling steps have been taken.
+
+1\. Access the dataset via [https://data.un.org](https://data.un.org/){.uri}
+
+2\. Search for 'Divorces by duration of marriage' or access it directly via <https://data.un.org/Data.aspx?q=Divorces+by+duration+of+marriage&d=POP&f=tableCode%3a87>
+
+3\. Select "Download"
+
+### Data Cleaning
+
+```{r}
+# Data cleaning before analysis
+
+# ============================================================
+# 1. Load packages and raw data
+# ============================================================
+
+library(tidyverse)
+library(janitor)
+library(countrycode)
+library(stringr)
+library(sf)
+library(rnaturalearthdata)
+library(rnaturalearth)
+
+
+divorce_data <- read_csv("data/UNdata_Export_20260528_021328529.csv")
+
+# ============================================================
+# 2. Initial cleaning (remove footnotes)
+# ============================================================
+divorce_data <- divorce_data |>
+  clean_names() |>
+  mutate(
+    duration_of_marriage = str_trim(duration_of_marriage),
+    year = str_trim(year)
+  ) |>
+  # Keep only valid 4-digit years (removes footnotes)
+  filter(str_detect(year, "^[0-9]{4}$"))
+
+# ============================================================
+# 3. Construct percent-of-total (create comparable measures)
+# ============================================================
+# 3.1 Extract and rank "Total" rows by data quality
+totals <- divorce_data |>
+  filter(duration_of_marriage == "Total") |>
+  mutate(
+    quality_rank = case_when(
+      reliability == "Final figure, complete" ~ 1,
+      record_type == "Data tabulated by year of occurrence" ~ 2,
+      record_type == "Data tabulated by year of registration" ~ 3,
+      TRUE ~ 4
+    )
+  ) |>
+  arrange(country_or_area, year, quality_rank) |>
+  group_by(country_or_area, year) |>
+  slice(1) |>   # <-- Keep only the best single row
+  ungroup() |>
+  select(country_or_area, year, total_value = value)
+
+
+# 3.2 Keep duration categories only
+details <- divorce_data |>
+  filter(!duration_of_marriage %in% c("Total", "Not stated"))
+
+# ==========================================================================
+# 4. Standardise duration-of-marriage categories BEFORE computing percentages
+# ==========================================================================
+details_std <- details |>
+  mutate(
+    # Extract all numbers from the bucket (handles "1", "1-3", "10 +", "Less than 5")
+    nums = str_extract_all(duration_of_marriage, "\\d+"),
+    nums = lapply(nums, as.numeric),
+    
+    # Determine the maximum number in the bucket
+    max_years = sapply(nums, function(x) if(length(x) == 0) NA else max(x)),
+    
+     # Adjust for "Less than X" so upper bound becomes X - 1
+    max_years = case_when(
+      str_detect(str_to_lower(duration_of_marriage), "less") ~ max_years - 1,
+      TRUE ~ max_years
+    ),
+    # Standardise into global bins
+    duration_std = case_when(
+      max_years <= 1 ~ "0-1",
+      max_years <= 2 ~ "1-2",
+      max_years <= 4 ~ "3-4",
+      max_years <= 9 ~ "5-9",
+      max_years >= 10 ~ "10+",
+      TRUE ~ NA_character_
+    )
+  ) |>
+  select(-nums, -max_years, - duration_of_marriage)
+
+# ==========================================================================
+# 3.3 Join totals back in and compute percent_of_total
+clean_divorce <- details_std |>
+  left_join(totals, by = c("country_or_area", "year")) |>
+  group_by(country_or_area, year, duration_std, total_value) |>
+  summarise(
+    value = sum(value, na.rm = TRUE),
+    .groups = "drop"
+  ) |>
+  mutate(
+    percent_of_total = value / total_value,
+    
+# ==========================================================================
+# 5. Add continent variable and filter to analysis period (1995–2025)
+# ==========================================================================
+    # Add column continent for further grouping analysis
+    continent = countrycode(country_or_area, "country.name", "continent")
+  ) |>
+  # Keep only recent 30 years
+  filter(as.numeric(year) >= 1995)
+
+# ============================================================
+# 6. Harmonise country names and restrict to only Europe
+# ============================================================
+world <- ne_countries(scale = "medium", returnclass = "sf")
+world_names <- world |>
+  st_drop_geometry() |>
+  select(name)
+# Find the mismatch in names spelling
+mismatch <- clean_divorce |>
+  distinct(country_or_area) |>
+  anti_join(world_names, by = c("country_or_area" = "name"))
+
+
+# Build the lookup table
+name_fix <- tribble(
+  ~country_or_area, ~name,
+  "Brunei Darussalam", "Brunei",
+  "China, Macao SAR", "Macau",
+  "Iran (Islamic Republic of)", "Iran",
+  "Netherlands (Kingdom of the)", "Netherlands",
+  "Republic of Korea", "South Korea",
+  "Republic of Moldova", "Moldova",
+  "Russian Federation", "Russia",
+  "State of Palestine", "Palestine",
+  "Türkiye", "Turkey",
+  "United Kingdom of Great Britain and Northern Ireland", "United Kingdom",
+  "Venezuela (Bolivarian Republic of)", "Venezuela"
+)
+
+# Apply to fixes
+clean_divorce <- clean_divorce |>
+  left_join(name_fix, by = "country_or_area") |>
+  mutate(
+    country = if_else(is.na(name), country_or_area, name)
+  ) |>
+  select(-name, -country_or_area) |>
+  relocate(country)
+
+# The dataset was filtered to include only European countries, reflecting the region with the most complete reporting.
+europe_divorce <- clean_divorce |> filter(continent == "Europe") 
+
+# ============================================================
+# 7. Save the cleaned dataset
+# ============================================================
+write_csv(europe_divorce, "data/europe_divorces_by_duration_of_marriage.csv")
+
+```
+
+<!-- Task 2 Tab: Writing your blogpost -->
+
+## Blog post
+
+### Why explore the Seven-Year Itch?
+
+The *Seven‑Year Itch* is one of those ideas that refuses to die — a cultural belief that marriages tend to break down around the seven‑year mark. It shows up in films, advice columns, and casual conversations, yet rarely gets tested with real data. That gap between myth and measurable reality makes it worth examining.
+
+Understanding *when* marriages tend to end isn’t just trivia. Divorce timing reflects social norms, economic pressures, and how relationships evolve over the life course. If certain durations consistently show higher divorce counts, those patterns can reveal something meaningful about the stresses couples face at different stages.
+
+### Dataset for analysing the duration of marriage before divorce in Europe
+
+The United Nations Statistics Division’s “Divorces by duration of marriage” dataset provides a rare opportunity to examine how long marriages last before ending across countries and over time. However, reporting completeness varies widely around the world. Many regions have sparse or inconsistent data, while Europe stands out as the area with the most comprehensive and continuous reporting of divorce‑duration statistics. To keep the analysis focused on contemporary patterns, this blog uses data from the most recent thirty years (1995–2025). For this reason, the analysis in **this blog focuses on European countries**, where the data are sufficiently complete to meaningfully explore whether a seven‑year peak in divorce timing actually appears — or whether the cultural myth collapses under empirical evidence.
+
+```{r}
+#| echo: false
+
+# 1. Identify countries with at least one non-missing duration observation
+coverage <- clean_divorce |>
+  group_by(country) |>
+  summarise(has_data = any(!is.na(percent_of_total))) |>
+  mutate(has_data = if_else(has_data, "Data available", "No data"))
+
+# 2. Join to world map
+map_coverage <- world |>
+  left_join(coverage, by = c("name" = "country")) |>
+  mutate(
+    has_data = replace_na(has_data, "No data")
+  )
+
+ggplot(map_coverage) +
+  geom_sf(aes(fill = has_data), color = "white", size = 0.1) +
+  scale_fill_manual(
+    values = c("Data available" = "#4daf4a",
+               "No data" = "grey90")
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Where Divorce Data Exists",
+    subtitle = "Europe stands out as the region with the most complete reporting",
+    fill = NULL
+  ) +
+  theme(
+    legend.position = "bottom",
+    plot.title = element_text(size = 16, face = "bold"),
+    plot.subtitle = element_text(size = 12)
+  )
+```
+
+### What does divorce timing look like across Europe?
+
+The bar graph below shows how common divorce is at different stages of marriage across Europe. The colours follow a light‑to‑dark gradient, with lighter shades representing earlier durations and darker shades representing longer ones.
+
+```{r}
+#| echo: false
+avg_duration <- europe_divorce |>
+   mutate(duration_std = factor(
+      duration_std,
+      levels = c("0-1", "1-2", "3-4", "5-9", "10+"))) |>
+  group_by(year, duration_std) |>
+  summarise(yearly_avg = mean(percent_of_total, na.rm = TRUE)) |>
+  ungroup() |>
+  group_by(duration_std) |>
+  summarise(mean_pct = mean(yearly_avg, na.rm = TRUE))
+  
+
+ggplot(avg_duration, aes(x = duration_std, y = mean_pct, fill = duration_std)) +
+  geom_col() +
+  scale_fill_manual(
+    values = c(
+      "0-1" = "#deebf7",   
+      "1-2" = "#c6dbef",   
+      "3-4" = "#9ecae1",   
+      "5-9" = "#6baed6",   
+      "10+" = "#3182bd"    
+    )
+  ) +
+  labs(
+    title = "Average Divorce Timing Across Europe",
+    x = "Years of Marriage",
+    y = "Average Sahre of Divorces",
+    fill = "Duration"
+  ) +
+  theme_minimal()
+
+```
+
+Across Europe, divorces are relatively uncommon in the first few years of marriage. The share rises steadily and reaches its highest levels between 3–4 years and 5–9 years of marriage. These mid‑marriage durations account for the largest proportion of divorces, while very early divorces (0–1 or 1–2 years) are much less common. This pattern suggests that marital strain tends to accumulate over time rather than appearing immediately — and that the “Seven‑Year Itch” sits within a broader mid‑marriage peak rather than standing out as a sharp spike.
+
+### Where in Europe do divorces peak?
+
+Across Europe, divorces are least common in the very early years of marriage, with only a small share occurring within the first one or two years. The proportion grows gradually as marriages last longer, with noticeably more divorces occurring after several years together. Mid‑duration marriages show a moderate rise, but the largest share of divorces happens among couples who have been married for a decade or more. Overall, the pattern suggests that divorce becomes more likely as marriages accumulate time and complexity, rather than peaking sharply in the early or middle years.
+
+While the Europe‑wide averages show that divorces tend to cluster in the long‑marriage years, this pattern is not necessarily identical across all countries. Some nations may experience earlier peaks, while others see divorces occurring later in marriage. To understand these differences, it helps to look at the geography of divorce timing rather than just the overall distribution.
+
+The map below shows the typical length of marriage before divorce in each European country, based on a **weighted average of divorce‑duration categories from 1995 to 2025**. To summarise the open‑ended “10+ years” category, I assume a midpoint of 15 years, reflecting the fact that many divorces in this group occur well beyond the ten‑year mark. Countries are coloured according to the resulting average number of years couples were married before divorcing, grouped into broad duration categories for clarity.
+
+```{r}
+#| echo: false
+
+bucket_mid <- c(
+  "0-1" = 0.5,
+  "1-2" = 1.5,
+  "3-4" = 3.5,
+  "5-9" = 7,
+  "10+" = 15
+)
+
+country_year_avg <- europe_divorce |>
+  mutate(mid = bucket_mid[duration_std]) |>
+  group_by(country, year) |>
+  summarise(
+    avg_duration_year = sum(mid * percent_of_total, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+country_avg <- country_year_avg |>
+  group_by(country) |>
+  summarise(
+    avg_duration = mean(avg_duration_year, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Join country_avg to the map
+europe_map <- world |>
+  filter(continent == "Europe") |>
+  left_join(country_avg, by = c("name" = "country"))|>
+  mutate(
+    duration_cat = cut(
+      avg_duration,
+      breaks = c(0.5, 1, 3, 5, 10, Inf),
+      labels = c("0-1", "1-2", "3-4", "5-9", "10+"),
+      include.lowest = TRUE,
+      right = FALSE
+    )
+  )
+
+# Plot map
+ggplot(europe_map) +
+  geom_sf(aes(fill = duration_cat), color = "white", size = 0.2) +
+  scale_fill_manual(
+    values = c(
+      "0-1" = "#deebf7",
+      "1-2" = "#c6dbef",
+      "3-4" = "#9ecae1",
+      "5-9" = "#6baed6",
+      "10+" = "#3182bd"
+    ),
+    na.value = "grey90",
+    name = "Avg Years"
+  ) +
+  coord_sf(
+    xlim = c(-25, 45),
+    ylim = c(34, 72),
+    expand = FALSE
+  ) +
+  theme_minimal() +
+  theme(
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    axis.text = element_blank(),
+    axis.title = element_blank()
+  ) +
+  labs(
+    title = "Average Duration of Marriage Before Divorce Across Europe",
+    subtitle = "Weighted average based on duration categories (1995–2025)"
+  )
+
+
+```
+
+The map reveals a clear continental pattern in how long marriages typically last before divorce. Although every country experiences divorces at a range of durations, their weighted averages show that most European countries tend to divorce later, not earlier. A large share of countries fall into the 10+‑year category once the long‑marriage bucket is weighted appropriately, indicating that divorces commonly occur well after a decade of marriage. Others cluster in the 5–9‑year range, reflecting a mid‑marriage concentration.
+
+This geographic pattern aligns with the broader trend visible in the earlier bar chart: Europe’s divorce timing is shaped primarily by mid‑ and long‑marriage breakdowns, with early‑marriage divorces playing a comparatively small role. While there is meaningful variation across countries, the overall picture is consistent—divorces across Europe tend to occur after many years of marriage, and long‑marriage divorces are far more widespread than early ones.
+
+### Has divorce timing shifted over the last 30 Years?
+
+Now that we’ve seen the overall European pattern and the geographic differences between countries, the next question is whether divorce timing has changed over the last three decades. Social norms, economic conditions, and family structures have all evolved since the mid‑1990s, and these shifts may influence when marriages are most likely to end. To explore this, we track how the share of divorces in each duration category has changed from 1995 to 2025.
+
+```{r}
+#| echo: false
+# Prepare data for time trend
+trend_data <- europe_divorce |>
+  mutate(
+    year = as.numeric(year),
+    duration_std = factor(
+      duration_std,
+      levels = c("0-1", "1-2", "3-4", "5-9", "10+"))
+  ) |>
+  group_by(year, duration_std) |>
+  summarise(
+    mean_pct = mean(percent_of_total, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Plot: stacked area chart
+ggplot(trend_data, aes(x = year, y = mean_pct, fill = duration_std)) +
+  geom_area(alpha = 0.9) +
+  scale_fill_manual(
+    values = c(
+      "0-1" = "#deebf7",  
+      "1-2" = "#c6dbef",  
+      "3-4" = "#9ecae1",   
+      "5-9" = "#6baed6",   
+      "10+" = "#3182bd"    
+    )
+  ) +
+  labs(
+    title = "How Divorce Timing Has Shifted Over Time",
+    subtitle = "Average share of divorces in each duration category, 1995–2025",
+    x = "Year",
+    y = "Average Share of Divorces",
+    fill = "Duration"
+  ) +
+  theme_minimal()
+
+
+```
+
+A clear pattern emerges from the time‑trend data. Early‑marriage divorces (0–4 years) remain consistently low throughout the entire period, showing no sign of becoming more common. In contrast, divorces after ten or more years of marriage have generally increased over time, becoming the dominant category across Europe. There is a brief dip in the 10+ group around the late 2000s and early 2010s, but this appears to be a temporary fluctuation rather than a structural shift, as the long‑marriage category resumes its upward trajectory in the following years. The 5–9‑year group remains stable as the second‑largest category, reinforcing the idea of a broad mid‑marriage peak rather than a sharp spike at seven years. Taken together, these trends suggest that European marriages are lasting longer before breaking down, and that the “Seven‑Year Itch” is not intensifying over time. Instead, long‑marriage divorces have become increasingly prominent, pointing to deeper social and demographic changes rather than a fixed psychological milestone.
+
+### So does the Seven-Year Itch exist?
+
+Taken together, the evidence shows that the “Seven‑Year Itch” is more cultural shorthand than statistical reality. Across Europe, divorces rarely peak early in marriage, and the most common break‑up point consistently falls well beyond the seven‑year mark. Geographic patterns reveal broad agreement across countries, and the long‑term trends show that divorces are, if anything, happening later rather than earlier. While mid‑marriage remains a period of heightened vulnerability, there is no sharp spike at seven years—only a gradual rise and a long plateau. In this sense, the Seven‑Year Itch captures a real idea—that relationships evolve and sometimes strain over time—but it does not correspond to a precise moment in the data.
+
+### References
+
+United Nations Statistics Division (UNSD) 2026, Divorces by duration of marriage, UN Demographic Statistics Database, accessed 28 May 2026, <https://data.un.org/>.
+
+Wickham H, Averick M, Bryan J, Chang W, McGowan LD, François R, Grolemund G, Hayes A, Henry L, Hester J, Kuhn M, Pedersen TL, Miller E, Bache SM, Müller K, Ooms J, Robinson D, Seidel DP, Spinu V, Takahashi K, Vaughan D, Wilke C, Woo K, Yutani H (2019). “Welcome to the tidyverse.” *Journal of Open Source Software*, *4*(43), 1686. doi:10.21105/joss.01686 <https://doi.org/10.21105/joss.01686>.
+
+Wickham H (2025). *stringr: Simple, Consistent Wrappers for Common String Operations*. doi:10.32614/CRAN.package.stringr <https://doi.org/10.32614/CRAN.package.stringr>, R package version 1.6.0, <https://CRAN.R-project.org/package=stringr>.
+
+Pebesma, E., & Bivand, R. (2023). Spatial Data Science: With Applications in R. Chapman and Hall/CRC. https://doi.org/10.1201/9780429459016
+
+Massicotte P, South A (2026). *rnaturalearth: World Map Data from Natural Earth*. doi:10.32614/CRAN.package.rnaturalearth <https://doi.org/10.32614/CRAN.package.rnaturalearth>, R package version 1.2.0, <https://CRAN.R-project.org/package=rnaturalearth>.
+
+South A, Michael S, Massicotte P (2024). *rnaturalearthdata: World Vector Map Data from Natural Earth Used in 'rnaturalearth'*. doi:10.32614/CRAN.package.rnaturalearthdata <https://doi.org/10.32614/CRAN.package.rnaturalearthdata>, R package version 1.0.0, <https://CRAN.R-project.org/package=rnaturalearthdata>.
+
+Arel-Bundock V, Enevoldsen N, Yetman C (2018). “countrycode: An R package to convert country names and country codes.” *Journal of Open Source Software*, *3*(28), 848. <https://doi.org/10.21105/joss.00848>.
+
+Xie Y (2025). *knitr: A General-Purpose Package for Dynamic Report Generation in R*. R package version 1.51, <https://yihui.org/knitr/>.
+
+<!-- Task 3 Tab: Behind the Scenes -  -->
+
+## Behind the Scenes
+
+### What's in this section
+
+Here is where you should tell us about your reflection on your analysis (Task 3).
+
+Again, these are the details about **your** perspective and the gritty details behind the scenes of your analysis.
+:::
